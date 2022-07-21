@@ -19,8 +19,8 @@ export default [
         },
         plugins: [
             nodeResolve({
-            extensions,
-            modulesOnly: true,
+                extensions,
+                modulesOnly: true,
             }),
             typescript(),
             babel(),
@@ -35,8 +35,8 @@ export default [
         },
         plugins: [
             nodeResolve({
-            extensions,
-            modulesOnly: true,
+                extensions,
+                modulesOnly: true,
             }),
             typescript(),
             babel(),
