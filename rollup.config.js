@@ -3,6 +3,8 @@ const { babel } = require('@rollup/plugin-babel'); // rollup 的 babel 插件，
 const path = require('path');
 const typescript = require('@rollup/plugin-typescript');
 const { nodeResolve } = require('@rollup/plugin-node-resolve');
+const commonjs = require('@rollup/plugin-commonjs');
+const json = require('@rollup/plugin-json');
 const pkg = require('./package.json');
 
 const extensions = ['.js', '.ts'];
@@ -18,6 +20,8 @@ export default [
             format: 'cjs',
         },
         plugins: [
+            json(),
+            commonjs(),
             nodeResolve({
                 extensions,
                 modulesOnly: true,
@@ -34,6 +38,8 @@ export default [
             format: 'cjs',
         },
         plugins: [
+            json(),
+            commonjs(),
             nodeResolve({
                 extensions,
                 modulesOnly: true,

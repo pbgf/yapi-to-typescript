@@ -30,6 +30,7 @@ import {
 } from './types'
 import { JSONSchema4, JSONSchema4TypeName } from 'json-schema'
 import { URL } from 'url'
+import consola from 'consola';
 
 interface IResponse<T> {
   errno: number;
@@ -430,40 +431,43 @@ export function getRequestDataJsonSchema(
   customTypeMapping: Record<string, JSONSchema4TypeName>,
 ): JSONSchema4 {
   let jsonSchema: JSONSchema4 | undefined
-
-  // 处理表单数据（仅 POST 类接口）
-  if (isPostLikeMethod(interfaceInfo.method)) {
-    switch (interfaceInfo.req_body_type) {
-      case RequestBodyType.form:
-        jsonSchema = propDefinitionsToJsonSchema(
-          interfaceInfo.req_body_form.map<PropDefinition>(item => ({
-            name: item.name,
-            required: item.required === Required.true,
-            type: (item.type === RequestFormItemType.file
-              ? 'file'
-              : 'string') as any,
-            comment: item.desc,
-          })),
-          customTypeMapping,
-        )
-        break
-      case RequestBodyType.json:
-        if (interfaceInfo.req_body_other) {
-          jsonSchema = interfaceInfo.req_body_is_json_schema
-            ? jsonSchemaStringToJsonSchema(
-                interfaceInfo.req_body_other,
-                customTypeMapping,
-              )
-            : jsonToJsonSchema(
-                JSON5.parse(interfaceInfo.req_body_other),
-                customTypeMapping,
-              )
-        }
-        break
-      default:
-        /* istanbul ignore next */
-        break
+  try {
+    // 处理表单数据（仅 POST 类接口）
+    if (isPostLikeMethod(interfaceInfo.method)) {
+      switch (interfaceInfo.req_body_type) {
+        case RequestBodyType.form:
+          jsonSchema = propDefinitionsToJsonSchema(
+            interfaceInfo.req_body_form.map<PropDefinition>(item => ({
+              name: item.name,
+              required: item.required === Required.true,
+              type: (item.type === RequestFormItemType.file
+                ? 'file'
+                : 'string') as any,
+              comment: item.desc,
+            })),
+            customTypeMapping,
+          )
+          break
+        case RequestBodyType.json:
+          if (interfaceInfo.req_body_other) {
+            jsonSchema = interfaceInfo.req_body_is_json_schema
+              ? jsonSchemaStringToJsonSchema(
+                  interfaceInfo.req_body_other,
+                  customTypeMapping,
+                )
+              : jsonToJsonSchema(
+                  JSON5.parse(interfaceInfo.req_body_other),
+                  customTypeMapping,
+                )
+          }
+          break
+        default:
+          /* istanbul ignore next */
+          break
+      }
     }
+  } catch(error) {
+    consola.error(`在解析${interfaceInfo.path}接口的时候出现了错误:${error}`);
   }
 
   // 处理查询数据
@@ -532,23 +536,28 @@ export function getResponseDataJsonSchema(
 ): JSONSchema4 {
   let jsonSchema: JSONSchema4 = {}
 
-  switch (interfaceInfo.res_body_type) {
-    case ResponseBodyType.json:
-      if (interfaceInfo.res_body) {
-        jsonSchema = interfaceInfo.res_body_is_json_schema
-          ? jsonSchemaStringToJsonSchema(
-              interfaceInfo.res_body,
-              customTypeMapping,
-            )
-          : mockjsTemplateToJsonSchema(
-              JSON5.parse(interfaceInfo.res_body),
-              customTypeMapping,
-            )
-      }
-      break
-    default:
-      jsonSchema = { __is_any__: true }
-      break
+  try {
+    switch (interfaceInfo.res_body_type) {
+      case ResponseBodyType.json:
+        const res_body = interfaceInfo.res_body || interfaceInfo.res_body_multi[0].cont;
+        if (res_body) {
+          jsonSchema = interfaceInfo.res_body_is_json_schema
+            ? jsonSchemaStringToJsonSchema(
+                res_body,
+                customTypeMapping,
+              )
+            : mockjsTemplateToJsonSchema(
+                JSON5.parse(res_body),
+                customTypeMapping,
+              )
+        }
+        break
+      default:
+        jsonSchema = { __is_any__: true }
+        break
+    }
+  } catch(error) {
+    consola.error(`在解析${interfaceInfo.path}接口的时候出现了错误:${error}`);
   }
 
   if (dataKey && jsonSchema) {

@@ -1,4 +1,2 @@
-import HandleThemes from "../lib/HandleThemes";
-
-const handles = new HandleThemes();
-handles.getFolderFiles("/Users/didi/Projects");
+export * from './types'
+export * from './helpers'

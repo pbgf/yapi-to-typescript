@@ -140,7 +140,7 @@ export default class Generator {
                   )
                   // 删除不存在的分类
                   categoryIds = categoryIds.filter(
-                    id => !!projectInfo.cats.find(cat => cat._id === id),
+                    id => !!projectInfo.cats.find(cat => `${cat._id}` === `${id}`),
                   )
                   // 顺序化
                   categoryIds = categoryIds.sort()
@@ -583,6 +583,28 @@ export default class Generator {
     return res.data || res
   }
 
+  async fetchPromiseApi<T = any>(url: string, query: Record<string, any>): Promise<T> {
+    const timestamp = new Date().valueOf();
+    const sign = md5(`appName=tsmeta&appKey=${appkey}&timestamp=${timestamp}`);
+    const res = await httpGet<{
+      errcode: any
+      errmsg: any
+      data: any
+    }>(url, query, {
+      headers: {
+        appname,
+        appkey,
+        timestamp,
+        sign,
+      }
+    })
+    /* istanbul ignore next */
+    if (res && res.errcode) {
+      throwError(res.errmsg)
+    }
+    return res.data || res
+  }
+
   fetchProject = memoize(
     async ({ serverUrl, token }: SyntheticalConfig) => {
       const projectInfo = await this.fetchApi<Project>(
@@ -632,19 +654,11 @@ export default class Generator {
             return cat
           });
         case 'promise':
-          const timestamp = new Date().valueOf();
-          const interfaceList = await this.fetchApi<InterfacePromise[]>(`${promiseBaseUrl}/api/public/interfaces`, {
+          const interfaceList = await this.fetchPromiseApi<InterfacePromise[]>(`${promiseBaseUrl}/api/public/interfaces`, {
             platform_id: promiseKey,
-          }, {
-            headers: {
-              appname,
-              appkey,
-              timestamp,
-              sign: md5(`appName=tsmeta&appKey=${appkey}&timestamp=${timestamp}`),
-            }
           });
           const interfaceDetailList = await Promise.all(interfaceList.map((interfaceInfo) => (
-            this.fetchApi(`${promiseBaseUrl}/api/public/interface`, { id: interfaceInfo._id })
+            this.fetchPromiseApi(`${promiseBaseUrl}/api/public/interface`, { id: interfaceInfo._id })
           )));
           const interfaceGroupBtCat = groupBy(interfaceDetailList, item => item.catid);
           const interfaceWithCat = Object.keys(interfaceGroupBtCat)
@@ -655,6 +669,7 @@ export default class Generator {
               list: interfaceGroupBtCat[catid],
             });
           }, [] as any[]);
+          fs.outputJSONSync('./test.json', interfaceWithCat);
           return interfaceWithCat;
       }
     },
@@ -672,7 +687,7 @@ export default class Generator {
     const category = (
       (await this.fetchExport({ serverUrl, token, serverType, promiseKey })) || []
     ).find(
-      cat => !isEmpty(cat) && !isEmpty(cat.list) && cat.list[0].catid === id,
+      cat => !isEmpty(cat) && !isEmpty(cat.list) && `${cat.list[0].catid}` === `${id}`,
     )
 
     if (category) {
@@ -724,14 +739,8 @@ export default class Generator {
           tag: [],
           env: [],
           getMockUrl: () => ``,
-          getDevUrl: (devEnvName: string) => {
-            const env = projectInfo.env.find(e => e.name === devEnvName)
-            return (env && env.domain) /* istanbul ignore next */ || ''
-          },
-          getProdUrl: (prodEnvName: string) => {
-            const env = projectInfo.env.find(e => e.name === prodEnvName)
-            return (env && env.domain) /* istanbul ignore next */ || ''
-          },
+          getDevUrl: (devEnvName: string) => '',
+          getProdUrl: (prodEnvName: string) => '',
         };
       default: return {
         _id: 'arFgQ2LD8',
@@ -743,14 +752,8 @@ export default class Generator {
         tag: [],
         env: [],
         getMockUrl: () => ``,
-        getDevUrl: (devEnvName: string) => {
-          const env = projectInfo.env.find(e => e.name === devEnvName)
-          return (env && env.domain) /* istanbul ignore next */ || ''
-        },
-        getProdUrl: (prodEnvName: string) => {
-          const env = projectInfo.env.find(e => e.name === prodEnvName)
-          return (env && env.domain) /* istanbul ignore next */ || ''
-        },
+        getDevUrl: (devEnvName: string) => '',
+        getProdUrl: (prodEnvName: string) => '',
       };
     }
   }
@@ -772,7 +775,7 @@ export default class Generator {
           extendedInterfaceInfo,
           changeCase,
         )
-      : changeCase.camelCase(extendedInterfaceInfo.parsedPath.name)
+      : changeCase.camelCase(`${extendedInterfaceInfo.parsedPath.dir.replace('/', '.')}.${extendedInterfaceInfo.parsedPath.name}.${interfaceInfo.method}`)
     const requestConfigName = changeCase.camelCase(
       `${requestFunctionName}RequestConfig`,
     )
@@ -852,7 +855,7 @@ export default class Generator {
       } = {
         ...syntheticalConfig.comment,
         // Swagger 时总是禁用标签、更新时间、链接
-        ...(syntheticalConfig.serverType === 'swagger'
+        ...(syntheticalConfig.serverType === 'swagger' || syntheticalConfig.serverType === 'promise'
           ? {
               tag: false,
               updateTime: false,
@@ -993,290 +996,6 @@ export default class Generator {
                 extendedInterfaceInfo.res_body_type
               },
               dataKey: dataKey${categoryUID},
-              paramNames: ${paramNamesLiteral},
-              queryNames: ${queryNamesLiteral},
-              requestDataOptional: ${JSON.stringify(isRequestDataOptional)},
-              requestDataJsonSchema: ${JSON.stringify(
-                syntheticalConfig.jsonSchema?.enabled &&
-                  syntheticalConfig.jsonSchema?.requestData !== false
-                  ? requestDataJsonSchema
-                  : {},
-              )},
-              responseDataJsonSchema: ${JSON.stringify(
-                syntheticalConfig.jsonSchema?.enabled &&
-                  syntheticalConfig.jsonSchema?.responseData !== false
-                  ? responseDataJsonSchema
-                  : {},
-              )},
-              requestFunctionName: ${JSON.stringify(requestFunctionName)},
-              queryStringArrayFormat: QueryStringArrayFormat.${
-                syntheticalConfig.queryStringArrayFormat ||
-                QueryStringArrayFormat.brackets
-              },
-              extraInfo: ${JSON.stringify(requestFunctionExtraInfo)},
-            }
-
-            ${genComment(title => `接口 ${title} 的 **请求函数**`)}
-            export const ${requestFunctionName} = ${COMPRESSOR_TREE_SHAKING_ANNOTATION} (
-              requestData${
-                isRequestDataOptional ? '?' : ''
-              }: ${requestDataTypeName},
-              ...args: UserRequestRestArgs
-            ) => {
-              return request<${responseDataTypeName}>(
-                prepare(${requestConfigName}, requestData),
-                ...args,
-              )
-            }
-
-            ${requestFunctionName}.requestConfig = ${requestConfigName}
-
-            ${
-              !syntheticalConfig.reactHooks ||
-              !syntheticalConfig.reactHooks.enabled
-                ? ''
-                : dedent`
-                  ${genComment(title => `接口 ${title} 的 **React Hook**`)}
-                  export const ${requestHookName} = ${COMPRESSOR_TREE_SHAKING_ANNOTATION} makeRequestHook<${requestDataTypeName}, ${requestConfigTypeName}, ReturnType<typeof ${requestFunctionName}>>(${requestFunctionName})
-                `
-            }
-          `
-      }
-    `
-  }
-
-  async generateInterfaceCodeWithOutCategory(
-    syntheticalConfig: SyntheticalConfig,
-    interfaceInfo: Interface,
-  ) {
-    const extendedInterfaceInfo: ExtendedInterface = {
-      ...interfaceInfo,
-      parsedPath: path.parse(interfaceInfo.path),
-    }
-    const requestFunctionName = isFunction(
-      syntheticalConfig.getRequestFunctionName,
-    )
-      ? await syntheticalConfig.getRequestFunctionName(
-          extendedInterfaceInfo,
-          changeCase,
-        )
-      : changeCase.camelCase(extendedInterfaceInfo.parsedPath.name)
-    const requestConfigName = changeCase.camelCase(
-      `${requestFunctionName}RequestConfig`,
-    )
-    const requestConfigTypeName = changeCase.pascalCase(requestConfigName)
-    const requestDataTypeName = isFunction(
-      syntheticalConfig.getRequestDataTypeName,
-    )
-      ? await syntheticalConfig.getRequestDataTypeName(
-          extendedInterfaceInfo,
-          changeCase,
-        )
-      : changeCase.pascalCase(`${requestFunctionName}Request`)
-    const responseDataTypeName = isFunction(
-      syntheticalConfig.getResponseDataTypeName,
-    )
-      ? await syntheticalConfig.getResponseDataTypeName(
-          extendedInterfaceInfo,
-          changeCase,
-        )
-      : changeCase.pascalCase(`${requestFunctionName}Response`)
-    const requestDataJsonSchema = getRequestDataJsonSchema(
-      extendedInterfaceInfo,
-      syntheticalConfig.customTypeMapping || {},
-    )
-    const requestDataType = await jsonSchemaToType(
-      requestDataJsonSchema,
-      requestDataTypeName,
-    )
-    const responseDataJsonSchema = getResponseDataJsonSchema(
-      extendedInterfaceInfo,
-      syntheticalConfig.customTypeMapping || {},
-      syntheticalConfig.dataKey,
-    )
-    const responseDataType = await jsonSchemaToType(
-      responseDataJsonSchema,
-      responseDataTypeName,
-    )
-    const isRequestDataOptional = /(\{\}|any)$/s.test(requestDataType)
-    const requestHookName =
-      syntheticalConfig.reactHooks && syntheticalConfig.reactHooks.enabled
-        ? isFunction(syntheticalConfig.reactHooks.getRequestHookName)
-          ? /* istanbul ignore next */
-            await syntheticalConfig.reactHooks.getRequestHookName(
-              extendedInterfaceInfo,
-              changeCase,
-            )
-          : `use${changeCase.pascalCase(requestFunctionName)}`
-        : ''
-
-    // 支持路径参数
-    const paramNames = (
-      extendedInterfaceInfo.req_params /* istanbul ignore next */ || []
-    ).map(item => item.name)
-    const paramNamesLiteral = JSON.stringify(paramNames)
-    const paramNameType =
-      paramNames.length === 0 ? 'string' : `'${paramNames.join("' | '")}'`
-
-    // 支持查询参数
-    const queryNames = (
-      extendedInterfaceInfo.req_query /* istanbul ignore next */ || []
-    ).map(item => item.name)
-    const queryNamesLiteral = JSON.stringify(queryNames)
-    const queryNameType =
-      queryNames.length === 0 ? 'string' : `'${queryNames.join("' | '")}'`
-
-    // 接口注释
-    const genComment = (genTitle: (title: string) => string) => {
-      const {
-        enabled: isEnabled = true,
-        title: hasTitle = true,
-        category: hasCategory = true,
-        tag: hasTag = true,
-        requestHeader: hasRequestHeader = true,
-        updateTime: hasUpdateTime = true,
-        link: hasLink = true,
-        extraTags,
-      } = {
-        ...syntheticalConfig.comment,
-        // Swagger 时总是禁用标签、更新时间、链接
-        ...(syntheticalConfig.serverType === 'swagger'
-          ? {
-              tag: false,
-              updateTime: false,
-              link: false,
-            }
-          : {}),
-      } as CommentConfig
-      if (!isEnabled) {
-        return ''
-      }
-      // 转义标题中的 /
-      const escapedTitle = String(extendedInterfaceInfo.title).replace(
-        /\//g,
-        '\\/',
-      )
-      const description = hasLink
-        ? `[${escapedTitle}↗](${extendedInterfaceInfo._url})`
-        : escapedTitle
-      const summary: Array<
-        | false
-        | {
-            label: string
-            value: string | string[]
-          }
-      > = [
-        hasCategory && {
-          label: '分类',
-          value: hasLink
-            ? `[${extendedInterfaceInfo._category.name}↗](${extendedInterfaceInfo._category._url})`
-            : extendedInterfaceInfo._category.name,
-        },
-        hasTag && {
-          label: '标签',
-          value: extendedInterfaceInfo.tag.map(tag => `\`${tag}\``),
-        },
-        hasRequestHeader && {
-          label: '请求头',
-          value: `\`${extendedInterfaceInfo.method.toUpperCase()} ${
-            extendedInterfaceInfo.path
-          }\``,
-        },
-        hasUpdateTime && {
-          label: '更新时间',
-          value: process.env.JEST_WORKER_ID // 测试时使用 unix 时间戳
-            ? String(extendedInterfaceInfo.up_time)
-            : /* istanbul ignore next */
-              `\`${dayjs(extendedInterfaceInfo.up_time * 1000).format(
-                'YYYY-MM-DD HH:mm:ss',
-              )}\``,
-        },
-      ]
-      if (typeof extraTags === 'function') {
-        const tags = extraTags(extendedInterfaceInfo)
-        for (const tag of tags) {
-          ;(tag.position === 'start' ? summary.unshift : summary.push).call(
-            summary,
-            {
-              label: tag.name,
-              value: tag.value,
-            },
-          )
-        }
-      }
-      const titleComment = hasTitle
-        ? dedent`
-            * ${genTitle(description)}
-            *
-          `
-        : ''
-      const extraComment: string = summary
-        .filter(item => typeof item !== 'boolean' && !isEmpty(item.value))
-        .map(item => {
-          const _item: Exclude<typeof summary[0], boolean> = item as any
-          return `* @${_item.label} ${castArray(_item.value).join(', ')}`
-        })
-        .join('\n')
-      return dedent`
-        /**
-         ${[titleComment, extraComment].filter(Boolean).join('\n')}
-         */
-      `
-    }
-
-    // 请求参数额外信息
-    const requestFunctionExtraInfo =
-      typeof syntheticalConfig.setRequestFunctionExtraInfo === 'function'
-        ? await syntheticalConfig.setRequestFunctionExtraInfo(
-            extendedInterfaceInfo,
-            changeCase,
-          )
-        : {}
-
-    return dedent`
-      ${genComment(title => `接口 ${title} 的 **请求类型**`)}
-      ${requestDataType.trim()}
-
-      ${genComment(title => `接口 ${title} 的 **返回类型**`)}
-      ${responseDataType.trim()}
-
-      ${
-        syntheticalConfig.typesOnly
-          ? ''
-          : dedent`
-            ${genComment(title => `接口 ${title} 的 **请求配置的类型**`)}
-            type ${requestConfigTypeName} = Readonly<RequestConfig<
-              ${JSON.stringify(syntheticalConfig.mockUrl)},
-              ${JSON.stringify(syntheticalConfig.devUrl)},
-              ${JSON.stringify(syntheticalConfig.prodUrl)},
-              ${JSON.stringify(extendedInterfaceInfo.path)},
-              ${JSON.stringify(syntheticalConfig.dataKey) || 'undefined'},
-              ${paramNameType},
-              ${queryNameType},
-              ${JSON.stringify(isRequestDataOptional)}
-            >>
-
-            ${genComment(title => `接口 ${title} 的 **请求配置**`)}
-            const ${requestConfigName}: ${requestConfigTypeName} = ${COMPRESSOR_TREE_SHAKING_ANNOTATION} {
-              path: ${JSON.stringify(extendedInterfaceInfo.path)},
-              method: Method.${extendedInterfaceInfo.method},
-              requestHeaders: ${JSON.stringify(
-                (extendedInterfaceInfo.req_headers || [])
-                  .filter(item => item.name.toLowerCase() !== 'content-type')
-                  .reduce<Record<string, string>>((res, item) => {
-                    res[item.name] = item.value
-                    return res
-                  }, {}),
-              )},
-              requestBodyType: RequestBodyType.${
-                extendedInterfaceInfo.method === Method.GET
-                  ? RequestBodyType.query
-                  : extendedInterfaceInfo.req_body_type /* istanbul ignore next */ ||
-                    RequestBodyType.none
-              },
-              responseBodyType: ResponseBodyType.${
-                extendedInterfaceInfo.res_body_type
-              },
               paramNames: ${paramNamesLiteral},
               queryNames: ${queryNamesLiteral},
               requestDataOptional: ${JSON.stringify(isRequestDataOptional)},

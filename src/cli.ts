@@ -33,7 +33,7 @@ program
 
 program
   .option('-c, --config <filePath>', '指定配置文件')
-  .action((options: any, command: any) => {
+  .action(async (options: any, command: any) => {
     let cwd!: string;
     let configTSFile!: string;
     let configJSFile!: string;
@@ -51,7 +51,10 @@ program
         const configFile = configTSFileExist ? configTSFile : configJSFile;
         const config = require(configFile).default;
         const generator = new Generator(config);
-        generator.generate();
+        await generator.prepare();
+        const output = await generator.generate();
+        await generator.write(output);
+        await generator.destroy();
       } else {
         consola.error(`${configTSFile}配置文件不存在`);
       }

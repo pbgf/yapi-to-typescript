@@ -1,0 +1,21 @@
+# 忽略目录
+dist/
+build/
+tests/
+demo/
+.ice/
+mock/
+package.json
+package-lock.json
+.eslintrc.js
+tsconfig.json
+
+
+# node 覆盖率文件
+coverage/
+
+# 忽略文件
+**/*-min.js
+**/*.min.js
+
+*.md
