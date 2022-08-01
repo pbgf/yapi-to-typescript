@@ -48,7 +48,7 @@ import {
   throwError,
 } from './utils'
 import { SwaggerToYApiServer } from './SwaggerToYApiServer'
-import { appkey, appname, promiseBaseUrl } from './const'
+import { appkey, appname, mockBaseUrl, promiseBaseUrl } from './const'
 import consola from 'consola'
 
 interface OutputFileList {
@@ -90,6 +90,9 @@ export default class Generator {
           })
           item.serverUrl = await swaggerToYApiServer.start()
           this.disposes.push(() => swaggerToYApiServer.stop())
+        }
+        if (item.serverType === 'mock') {
+          item.serverUrl = mockBaseUrl;
         }
         if (item.serverUrl) {
           // 去除地址后面的 /
