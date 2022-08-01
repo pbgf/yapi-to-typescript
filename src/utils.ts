@@ -139,7 +139,7 @@ export function processJsonSchema(
   jsonSchema: JSONSchema4,
   customTypeMapping: Record<string, JSONSchema4TypeName>,
 ): JSONSchema4 {
-  return traverseJsonSchema(jsonSchema, jsonSchema => {
+  return traverseJsonSchema(jsonSchema, (jsonSchema, currentPath) => {
     // 删除通过 swagger 导入时未剔除的 ref
     delete jsonSchema.$ref
     delete jsonSchema.$$ref
@@ -168,7 +168,7 @@ export function processJsonSchema(
         void: 'null',
         ...mapKeys(customTypeMapping, (_, key) => key.toLowerCase()),
       }
-      const isMultiple = Array.isArray(jsonSchema.type)
+      // const isMultiple = Array.isArray(jsonSchema.type)
       const types = castArray(jsonSchema.type).map(type => {
         // 所有类型转成小写，如：String -> string
         type = type.toLowerCase() as any
@@ -176,7 +176,11 @@ export function processJsonSchema(
         type = typeMapping[type] || type
         return type
       })
-      jsonSchema.type = isMultiple ? types : types[0]
+      // 数组或对象 有可能返回null， 这里需要加上null
+      if (types.includes('array') || types.includes('object')) {
+        types.push('null');
+      }
+      jsonSchema.type = types.length > 1 ? types : types[0]
     }
 
     // 移除字段名称首尾空格
@@ -466,7 +470,7 @@ export function getRequestDataJsonSchema(
           break
       }
     }
-  } catch(error) {
+  } catch (error) {
     consola.error(`在解析${interfaceInfo.path}接口的时候出现了错误:${error}`);
   }
 
@@ -665,5 +669,8 @@ export async function httpGet<T = IResponse<any>>(
     method: 'GET',
     ...(options || {}),
   });
+  if (res.status !== 200) {
+    consola.error(`${url} 接口请求失败 status: ${res.status}`)
+  }
   return res.json() as Promise<T>;
 }

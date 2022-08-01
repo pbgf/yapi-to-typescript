@@ -34,7 +34,7 @@ export default [
         input: resolve('./src/cli.ts'),
         output: {
             banner: '#!/usr/bin/env node',
-            file: './dist/cli.js',
+            file: './lib/cli.js',
             format: 'cjs',
         },
         plugins: [

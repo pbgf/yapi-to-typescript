@@ -6,7 +6,7 @@ import {
   RequestConfig,
   RequestFunctionParams,
 } from './types'
-import type { AppendOptions } from 'form-data'
+import { AppendOptions } from 'form-data'
 
 /**
  * 定义配置。

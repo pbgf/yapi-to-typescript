@@ -677,6 +677,11 @@ export interface ServerConfig extends SharedConfig {
    * 项目列表。
    */
   projects: ProjectConfig[]
+
+  /**
+   * 是否按照目录拆分文件
+   */
+   splitBtCats: boolean | Record<string, string>;
 }
 
 /** 混合的配置。 */

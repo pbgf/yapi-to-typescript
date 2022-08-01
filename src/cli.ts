@@ -1,9 +1,13 @@
 const { Command } = require('commander');
 import * as TSNode from 'ts-node'
 import consola from 'consola'
-import fs from 'fs'
+import fs from 'fs-extra'
 import path from 'path'
+import prompt from 'prompts'
 import Generator from './Generator';
+import dedent from 'dedent';
+import { Defined } from 'vtils/types';
+import { ServerConfig } from './types';
 // 注册ts-node方便 require直接可以解析ts文件
 TSNode.register({
   // 不加载本地的 tsconfig.json
@@ -35,30 +39,115 @@ program
   .option('-c, --config <filePath>', '指定配置文件')
   .action(async (options: any, command: any) => {
     let cwd!: string;
+    // let useCustomConfigFile = false
     let configTSFile!: string;
     let configJSFile!: string;
+    let configExist!: boolean;
+    let configFile!: string;
+    let configTSFileExist!: boolean;
+    let configJSFileExist!: boolean;
+    cwd = process.cwd();
     if (options.config) {
-      const filePath = options.config;
-      console.log(options.config);
+      configFile = path.join(cwd, options.config);
+      configExist = await fs.existsSync(configFile);
+      // useCustomConfigFile = true;
     } else {
-      cwd = process.cwd();
       configTSFile = path.join(cwd, 'att.config.ts');
       configJSFile = path.join(cwd, 'att.config.js');
-      const configTSFileExist = fs.existsSync(configTSFile);
-      const configJSFileExist = fs.existsSync(configJSFile);
-      const configExist = configJSFileExist || configTSFileExist;
-      if (configExist) {
-        const configFile = configTSFileExist ? configTSFile : configJSFile;
-        const config = require(configFile).default;
-        const generator = new Generator(config);
-        await generator.prepare();
-        const output = await generator.generate();
-        await generator.write(output);
-        await generator.destroy();
-      } else {
-        consola.error(`${configTSFile}配置文件不存在`);
-      }
+      configTSFileExist = fs.existsSync(configTSFile);
+      configJSFileExist = fs.existsSync(configJSFile);
+      configExist = configJSFileExist || configTSFileExist;
+      configFile = configTSFileExist ? configTSFile : configJSFile;
     }
+    if (configExist) {
+      const config = require(configFile).default;
+      consola.info(`读取配置文件${configFile}成功`);
+      const generator = new Generator(config);
+      await generator.prepare();
+      consola.info('开始生成代码');
+      const output = await generator.generate();
+      consola.info('生成成功，开始写入');
+      await generator.write(output);
+      await generator.destroy();
+      consola.success('成功，coding happy');
+    } else {
+      consola.error(`${configTSFile}配置文件不存在`);
+    }
+  })
+
+program
+  .command('init')
+  .description('init config file')
+  .action(async () => {
+    const cwd = process.cwd()
+    const configTSFile = path.join(cwd, 'att.config.ts')
+    const configJSFile = path.join(cwd, 'att.config.js')
+    const configTSFileExist = await fs.pathExists(configTSFile)
+    const configJSFileExist =
+      !configTSFileExist && (await fs.pathExists(configJSFile))
+    const configFileExist = configTSFileExist || configJSFileExist
+    const configFile = configTSFileExist ? configTSFile : configJSFile
+    if (configFileExist) {
+      consola.info(`检测到配置文件: ${configFile}`)
+      const answers = await prompt({
+        message: '是否覆盖已有配置文件?',
+        name: 'override',
+        type: 'confirm',
+      })
+      if (!answers.override) return
+    }
+    let outputConfigFile!: string
+    let outputConfigFileType!: 'ts' | 'js'
+    const answers = await prompt({
+      message: '选择配置文件类型?',
+      name: 'configFileType',
+      type: 'select',
+      choices: [
+        { title: 'TypeScript(att.config.ts)', value: 'ts' },
+        { title: 'JavaScript(att.config.js)', value: 'js' },
+      ],
+    })
+    outputConfigFile =
+      answers.configFileType === 'js' ? configJSFile : configTSFile
+    outputConfigFileType = answers.configFileType
+    await fs.outputFile(
+      outputConfigFile,
+      dedent`
+        import { defineConfig } from '@didi/api-to-typescript'
+
+        export default defineConfig({
+          serverType: 'promise',
+          typesOnly: false, // 只生成ts type
+          target: '${
+            (outputConfigFileType === 'js'
+              ? 'javascript'
+              : 'typescript') as Defined<ServerConfig['target']>
+          }',
+          splitBtCats: true,
+          outputFilePath: 'output/api/',
+          requestFunctionFilePath: 'output/api/request.ts',
+          dataKey: 'data',
+          projects: [
+            {
+              promiseKey: 'arFgQ2LD8',
+              // token: '49b02f333e1af28f249ae2742de29f155bc05f3863800cdfcca7e3aa410ae913',
+              categories: [{ 
+                id: 0,
+                // getRequestFunctionName(interfaceInfo, changeCase) {
+        
+                  // 若生成的请求函数名存在语法关键词报错、或想通过某个关键词触发 IDE 自动引入提示，可考虑加前缀，如:
+                  // return changeCase.camelCase(\`api_\${interfaceInfo.path}\`)
+        
+                  // 若生成的请求函数名有重复报错，可考虑将接口请求方式纳入生成条件，如:
+                  // return changeCase.camelCase(\`\${interfaceInfo.method}_\${interfaceInfo.path}\`)
+                // },
+              }],
+            },
+          ],
+        })
+      `,
+    )
+    consola.success('写入配置文件完毕')
   })
 
 if (require.main === module) {

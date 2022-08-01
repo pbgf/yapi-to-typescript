@@ -10,11 +10,13 @@ import {
   groupBy,
   isEmpty,
   isFunction,
+  isPlainObject,
   last,
   md5,
   memoize,
   noop,
   omit,
+  run,
   uniq,
   values,
 } from 'vtils'
@@ -46,7 +48,8 @@ import {
   throwError,
 } from './utils'
 import { SwaggerToYApiServer } from './SwaggerToYApiServer'
-import { appkey, appname, cats, promiseBaseUrl } from './const'
+import { appkey, appname, promiseBaseUrl } from './const'
+import consola from 'consola'
 
 interface OutputFileList {
   [outputFilePath: string]: {
@@ -213,17 +216,36 @@ export default class Generator {
                               code: string
                             }>
                           >(async interfaceInfo => {
-                            const outputFilePath = path.resolve(
-                              this.options.cwd,
-                              typeof syntheticalConfig.outputFilePath ===
-                                'function'
-                                ? syntheticalConfig.outputFilePath(
+                            const categoryUID = `_${serverIndex}_${projectIndex}_${categoryIndex}_${categoryIndex2}`;
+                            const [err, outputFilePath] = await run(() => {
+                              if (typeof syntheticalConfig.outputFilePath === 'function'){
+                                return path.resolve(
+                                  this.options.cwd,
+                                  syntheticalConfig.outputFilePath(
                                     interfaceInfo,
                                     changeCase,
-                                  )
-                                : syntheticalConfig.outputFilePath!,
-                            )
-                            const categoryUID = `_${serverIndex}_${projectIndex}_${categoryIndex}_${categoryIndex2}`
+                                  ),
+                                ) 
+                              }
+                              if (isPlainObject(syntheticalConfig.splitBtCats)) {
+                                const fileName = (syntheticalConfig.splitBtCats as Record<string, string>)[id] || interfaceInfo._category.name;
+                                return path.resolve(
+                                  this.options.cwd,
+                                  `${syntheticalConfig.outputFilePath!.replace(/\/+$/, '')}/${fileName}.ts`,
+                                )
+                              }
+                              if (syntheticalConfig.splitBtCats) {
+                                return path.resolve(
+                                  this.options.cwd,
+                                  `${syntheticalConfig.outputFilePath!.replace(/\/+$/, '')}/${interfaceInfo._category.name}.ts`,
+                                )
+                              }
+                              return path.resolve(
+                                this.options.cwd,
+                                syntheticalConfig.outputFilePath!,
+                              )
+                            })
+                            if (err !== null) consola.error('解析outputFilePath参数出现错误');
                             const code = await this.generateInterfaceCode(
                               syntheticalConfig,
                               interfaceInfo,
@@ -323,8 +345,7 @@ export default class Generator {
                         )
                       }),
                     )
-                  ).flat()
-
+                  ).flat();
                   for (const groupedCodes of values(
                     groupBy(codes, item => item.outputFilePath),
                   )) {
@@ -375,40 +396,65 @@ export default class Generator {
             await fs.outputFile(
               requestFunctionFilePath,
               dedent`
-                import type { RequestFunctionParams } from 'api-to-typescript'
-
-                export interface RequestOptions {
-                  /**
-                   * 使用的服务器。
-                   *
-                   * - \`prod\`: 生产服务器
-                   * - \`dev\`: 测试服务器
-                   * - \`mock\`: 模拟服务器
-                   *
-                   * @default prod
-                   */
-                  server?: 'prod' | 'dev' | 'mock',
-                }
+                import type { RequestFunctionParams } from '@didi/api-to-typescript'
+                export interface RequestOptions {}
 
                 export default function request<TResponseData>(
                   payload: RequestFunctionParams,
-                  options: RequestOptions = {
-                    server: 'prod',
-                  },
+                  options: RequestOptions = {},
                 ): Promise<TResponseData> {
+                  /**
+                   * 根据环境变量判断
+                   * mock payload.mockUrl
+                   * dev payload.devUrl promise平台无效 建议直接使用项目中的接口路径
+                   * prod payload.prodUrl promise平台无效 建议直接使用项目中的接口路径
+                   */
                   return new Promise<TResponseData>((resolve, reject) => {
                     // 基本地址
-                    const baseUrl = options.server === 'mock'
-                      ? payload.mockUrl
-                      : options.server === 'dev'
-                        ? payload.devUrl
-                        : payload.prodUrl
+                    const baseUrl = payload.prodUrl;
 
                     // 请求地址
-                    const url = \`\${baseUrl}\${payload.path}\`
+                    const url = \`\${baseUrl}\${payload.path}\`;
 
-                    // 具体请求逻辑
-                  })
+                    // 请求逻辑
+
+                    // axios
+                    // axios(config(payload.method, url, payload.rawData)).then((res) => {
+                    //   resolve(res as unknown as TResponseData);
+                    // });
+
+                    // fetch
+                    // switch (payload.method) {
+                    //   case 'GET': {
+                    //     let realUrl = \`\${url}\`\;
+                    //     const params = payload.rawData;
+                    //     if (params) {
+                    //       const querys = Object.keys(params).reduce(
+                    //         (res, key) => (params[key] ? \`\${res}&\${key}=\${params[key]}\` : res),
+                    //         '',
+                    //       );
+                    //       realUrl = \`\${realUrl}?\${querys.slice(1)}\`;
+                    //     }
+                    //     fetch(url, {
+                    //       method: payload.method,
+                    //     })
+                    //       .then((res) => res.json())
+                    //       .then((res) => {
+                    //         resolve(res);
+                    //       });
+                    //   }
+                    //   case 'POST': {
+                    //     fetch(url, {
+                    //       method: payload.method,
+                    //       body: JSON.stringify(payload.rawData),
+                    //     })
+                    //       .then((res) => res.json())
+                    //       .then((res) => {
+                    //         resolve(res);
+                    //       });
+                    //   }
+                    // }
+                  });
                 }
               `,
             )
@@ -422,7 +468,7 @@ export default class Generator {
               requestHookMakerFilePath,
               dedent`
                 import { useState, useEffect } from 'react'
-                import type { RequestConfig } from 'api-to-typescript'
+                import type { RequestConfig } from '@didi/api-to-typescript'
                 import type { Request } from ${JSON.stringify(
                   getNormalizedRelativePath(
                     requestHookMakerFilePath,
@@ -466,7 +512,6 @@ export default class Generator {
 
         // 始终写入主文件
         const rawOutputContent = dedent`
-          /* tslint:disable */
           /* eslint-disable */
 
           /* 该文件由 api-to-typescript 自动生成，请勿直接修改！！！ */
@@ -482,10 +527,10 @@ export default class Generator {
               : dedent`
                 // @ts-ignore
                 // prettier-ignore
-                import { QueryStringArrayFormat, Method, RequestBodyType, ResponseBodyType, FileData, prepare } from 'api-to-typescript'
+                import { QueryStringArrayFormat, Method, RequestBodyType, ResponseBodyType, FileData, prepare } from '@didi/api-to-typescript'
                 // @ts-ignore
                 // prettier-ignore
-                import type { RequestConfig, RequestFunctionRestArgs } from 'api-to-typescript'
+                import type { RequestConfig, RequestFunctionRestArgs } from '@didi/api-to-typescript'
                 // @ts-ignore
                 import request from ${JSON.stringify(
                   getNormalizedRelativePath(
@@ -625,11 +670,12 @@ export default class Generator {
   )
 
   fetchExport = memoize(
-    async ({ serverUrl, token, serverType, promiseKey }: SyntheticalConfig) => {
+    async (syntheticalConfig: SyntheticalConfig) => {
+      const { serverUrl, token, serverType, promiseKey } = syntheticalConfig;
       switch (serverType) {
         case 'mock':
         case 'swagger':
-          const projectInfo = await this.fetchProject({ serverUrl, token })
+          const projectBasicInfo = await this.fetchProject({ serverUrl, token })
           const categoryList = await this.fetchApi<CategoryList>(
             `${serverUrl}/api/plugin/export`,
             {
@@ -648,12 +694,14 @@ export default class Generator {
               const interfaceId = item._id
               // 实现接口在 YApi 上的地址
               item._url = `${serverUrl}/project/${projectId}/interface/api/${interfaceId}`
-              item.path = `${projectInfo.basepath}${item.path}`
+              item.path = `${projectBasicInfo.basepath}${item.path}`
               return item
             })
             return cat
           });
         case 'promise':
+          const projectInfo = await this.fetchProjectInfo(syntheticalConfig);
+          const cats = projectInfo.cats;
           const interfaceList = await this.fetchPromiseApi<InterfacePromise[]>(`${promiseBaseUrl}/api/public/interfaces`, {
             platform_id: promiseKey,
           });
@@ -665,11 +713,10 @@ export default class Generator {
           .reduce((result, catid, index) => {
             return result.concat({
               id: catid,
-              name: `第${index}属性`,
+              name: cats.find(cat => cat._id === catid)?.name,
               list: interfaceGroupBtCat[catid],
             });
           }, [] as any[]);
-          fs.outputJSONSync('./test.json', interfaceWithCat);
           return interfaceWithCat;
       }
     },
@@ -677,15 +724,16 @@ export default class Generator {
   )
 
   /** 获取分类的接口列表 */
-  async fetchInterfaceList({
-    serverUrl,
-    token,
-    id,
-    serverType,
-    promiseKey,
-  }: SyntheticalConfig): Promise<InterfaceList> {
+  async fetchInterfaceList(syntheticalConfig: SyntheticalConfig): Promise<InterfaceList> {
+    const {
+      serverUrl,
+      token,
+      id,
+      serverType,
+      promiseKey,
+    } = syntheticalConfig;
     const category = (
-      (await this.fetchExport({ serverUrl, token, serverType, promiseKey })) || []
+      (await this.fetchExport(syntheticalConfig)) || []
     ).find(
       cat => !isEmpty(cat) && !isEmpty(cat.list) && `${cat.list[0].catid}` === `${id}`,
     )
@@ -701,62 +749,67 @@ export default class Generator {
   }
 
   /** 获取项目信息 */
-  async fetchProjectInfo(syntheticalConfig: SyntheticalConfig) {
-    switch (syntheticalConfig.serverType) {
-      case 'mock':
-      case 'swagger':
-        const projectInfo = await this.fetchProject(syntheticalConfig)
-        const projectCats = await this.fetchApi<CategoryList>(
-          `${syntheticalConfig.serverUrl}/api/interface/getCatMenu`,
-          {
-            token: syntheticalConfig.token!,
-            project_id: projectInfo._id,
-          },
-        )
-        return {
-          ...projectInfo,
-          cats: projectCats,
-          getMockUrl: () =>
-            `${syntheticalConfig.serverUrl}/mock/${projectInfo._id}`,
-          getDevUrl: (devEnvName: string) => {
-            const env = projectInfo.env.find(e => e.name === devEnvName)
-            return (env && env.domain) /* istanbul ignore next */ || ''
-          },
-          getProdUrl: (prodEnvName: string) => {
-            const env = projectInfo.env.find(e => e.name === prodEnvName)
-            return (env && env.domain) /* istanbul ignore next */ || ''
-          },
-        }
-      case 'promise':
-        // TODO 等待promise开放分类接口
-        return {
-          _id: 'arFgQ2LD8',
-          name: 'pope',
-          cats: cats as unknown as CategoryList,
+  fetchProjectInfo = memoize(
+    async (syntheticalConfig: SyntheticalConfig) => {
+      switch (syntheticalConfig.serverType) {
+        case 'mock':
+        case 'swagger':
+          const projectInfo = await this.fetchProject(syntheticalConfig)
+          const projectCats = await this.fetchApi<CategoryList>(
+            `${syntheticalConfig.serverUrl}/api/interface/getCatMenu`,
+            {
+              token: syntheticalConfig.token!,
+              project_id: projectInfo._id,
+            },
+          )
+          return {
+            ...projectInfo,
+            cats: projectCats,
+            getMockUrl: () =>
+              `${syntheticalConfig.serverUrl}/mock/${projectInfo._id}`,
+            getDevUrl: (devEnvName: string) => {
+              const env = projectInfo.env.find(e => e.name === devEnvName)
+              return (env && env.domain) /* istanbul ignore next */ || ''
+            },
+            getProdUrl: (prodEnvName: string) => {
+              const env = projectInfo.env.find(e => e.name === prodEnvName)
+              return (env && env.domain) /* istanbul ignore next */ || ''
+            },
+          }
+        case 'promise':
+          const cats = await this.fetchPromiseApi<CategoryList>(`${promiseBaseUrl}/api/public/interface/list_menu`, {
+            platform_id: syntheticalConfig.promiseKey,
+          });
+          return {
+            _id: syntheticalConfig.promiseKey || '',
+            name: 'pope',
+            cats: cats,
+            _url: '',
+            desc: '',
+            basepath: '',
+            tag: [],
+            env: [],
+            getMockUrl: () => `${promiseBaseUrl}/mock/${syntheticalConfig.promiseKey}`,
+            getDevUrl: (devEnvName: string) => '',
+            getProdUrl: (prodEnvName: string) => '',
+          };
+        default: return {
+          _id: syntheticalConfig.promiseKey || '',
+          name: '',
+          cats: [],
           _url: '',
           desc: '',
           basepath: '',
           tag: [],
           env: [],
-          getMockUrl: () => ``,
+          getMockUrl: () => `${promiseBaseUrl}/mock/${syntheticalConfig.promiseKey}`,
           getDevUrl: (devEnvName: string) => '',
           getProdUrl: (prodEnvName: string) => '',
         };
-      default: return {
-        _id: 'arFgQ2LD8',
-        name: 'pope',
-        cats: cats as unknown as CategoryList,
-        _url: '',
-        desc: '',
-        basepath: '',
-        tag: [],
-        env: [],
-        getMockUrl: () => ``,
-        getDevUrl: (devEnvName: string) => '',
-        getProdUrl: (prodEnvName: string) => '',
-      };
-    }
-  }
+      }
+    },
+    ({ token, promiseKey, serverUrl }) => `${token}|${promiseKey}|${serverUrl}`,
+  )
 
   /** 生成接口代码 */
   async generateInterfaceCode(

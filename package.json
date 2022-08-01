@@ -1,10 +1,9 @@
 {
-  "name": "api-to-typescript",
-  "version": "1.0.0",
+  "name": "@didi/api-to-typescript",
+  "version": "0.0.3-beta.2",
   "description": "",
-  "main": "./dist/index.js",
+  "main": "lib/index.js",
   "scripts": {
-    "start": "./dist/cli.js",
     "build": "rollup -c",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -13,7 +12,7 @@
     "url": "https://git.xiaojukeji.com/heyanqi/api-to-typescript.git"
   },
   "bin": {
-    "att": "dist/cli.js"
+    "att": "lib/cli.js"
   },
   "author": "heyanqi",
   "license": "ISC",
@@ -31,6 +30,7 @@
     "@types/dedent": "^0.7.0",
     "@types/fs-extra": "^9.0.13",
     "@types/node-fetch": "^2.6.2",
+    "@types/prompts": "^2.0.14",
     "@types/signal-exit": "^3.0.1",
     "@types/to-json-schema": "^0.2.1",
     "eslint": "^7.32.0",
