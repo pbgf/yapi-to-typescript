@@ -396,7 +396,7 @@ export default class Generator {
             await fs.outputFile(
               requestFunctionFilePath,
               dedent`
-                import type { RequestFunctionParams } from '@didi/api-to-typescript'
+                import { RequestFunctionParams } from '@didi/api-to-typescript'
                 export interface RequestOptions {}
 
                 export default function request<TResponseData>(
@@ -411,7 +411,14 @@ export default class Generator {
                    */
                   return new Promise<TResponseData>((resolve, reject) => {
                     // 基本地址
-                    const baseUrl = payload.prodUrl;
+                    let baseUrl = '';
+                    if (isProd) {
+                      // ....
+                    } else if (isDev) {
+                      // ....
+                    } else if (isMock) {
+                      baseUrl = payload.mockUrl
+                    }
 
                     // 请求地址
                     const url = \`\${baseUrl}\${payload.path}\`;
@@ -468,8 +475,8 @@ export default class Generator {
               requestHookMakerFilePath,
               dedent`
                 import { useState, useEffect } from 'react'
-                import type { RequestConfig } from '@didi/api-to-typescript'
-                import type { Request } from ${JSON.stringify(
+                import { RequestConfig } from '@didi/api-to-typescript'
+                import { Request } from ${JSON.stringify(
                   getNormalizedRelativePath(
                     requestHookMakerFilePath,
                     outputFilePath,
@@ -530,7 +537,7 @@ export default class Generator {
                 import { QueryStringArrayFormat, Method, RequestBodyType, ResponseBodyType, FileData, prepare } from '@didi/api-to-typescript'
                 // @ts-ignore
                 // prettier-ignore
-                import type { RequestConfig, RequestFunctionRestArgs } from '@didi/api-to-typescript'
+                import { RequestConfig, RequestFunctionRestArgs } from '@didi/api-to-typescript'
                 // @ts-ignore
                 import request from ${JSON.stringify(
                   getNormalizedRelativePath(
@@ -726,11 +733,7 @@ export default class Generator {
   /** 获取分类的接口列表 */
   async fetchInterfaceList(syntheticalConfig: SyntheticalConfig): Promise<InterfaceList> {
     const {
-      serverUrl,
-      token,
       id,
-      serverType,
-      promiseKey,
     } = syntheticalConfig;
     const category = (
       (await this.fetchExport(syntheticalConfig)) || []
