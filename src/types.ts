@@ -647,7 +647,7 @@ export interface ProjectConfig extends SharedConfig {
    *
    * @example 'e02a47122259d0c1973a9ff81cabb30685d64abc72f39edaa1ac6b6a792a647d'
    */
-  token: string | string[]
+  token?: string | string[]
   promiseKey?: string;
   /**
    * 分类列表。
@@ -664,7 +664,7 @@ export interface ServerConfig extends SharedConfig {
    *
    * @example 'http://yapi.foo.bar'
    */
-  serverUrl: string
+  serverUrl?: string
 
   /**
    * 服务类型。

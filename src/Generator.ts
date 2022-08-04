@@ -86,7 +86,7 @@ export default class Generator {
       this.config.map(async item => {
         if (item.serverType === 'swagger') {
           const swaggerToYApiServer = new SwaggerToYApiServer({
-            swaggerJsonUrl: item.serverUrl,
+            swaggerJsonUrl: item.serverUrl!,
           })
           item.serverUrl = await swaggerToYApiServer.start()
           this.disposes.push(() => swaggerToYApiServer.stop())

@@ -5,6 +5,7 @@ const typescript = require('@rollup/plugin-typescript');
 const { nodeResolve } = require('@rollup/plugin-node-resolve');
 const commonjs = require('@rollup/plugin-commonjs');
 const json = require('@rollup/plugin-json');
+const dts = require('rollup-plugin-dts').default;
 const pkg = require('./package.json');
 
 const extensions = ['.js', '.ts'];
@@ -29,6 +30,12 @@ export default [
             typescript(),
             babel(),
         ],
+    },
+    {
+        // path to your declaration files root
+        input: resolve('./src/index.ts'),
+        output: [{ file: './lib/index.d.ts', format: 'es' }],
+        plugins: [dts()],
     },
     {
         input: resolve('./src/cli.ts'),
