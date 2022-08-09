@@ -138,6 +138,7 @@ export function traverseJsonSchema(
 export function processJsonSchema(
   jsonSchema: JSONSchema4,
   customTypeMapping: Record<string, JSONSchema4TypeName>,
+  isDefaultNullable?: boolean,
 ): JSONSchema4 {
   return traverseJsonSchema(jsonSchema, (jsonSchema, currentPath) => {
     // 删除通过 swagger 导入时未剔除的 ref
@@ -177,7 +178,7 @@ export function processJsonSchema(
         return type
       })
       // 数组或对象 有可能返回null， 这里需要加上null
-      if (types.includes('array') || types.includes('object')) {
+      if (isDefaultNullable && (types.includes('array') || types.includes('object'))) {
         types.push('null');
       }
       jsonSchema.type = types.length > 1 ? types : types[0]
@@ -283,6 +284,7 @@ export function jsonSchemaStringToJsonSchema(
 export function jsonToJsonSchema(
   json: object,
   customTypeMapping: Record<string, JSONSchema4TypeName>,
+  isDefaultNullable?: boolean,
 ): JSONSchema4 {
   const schema = toJsonSchema(json, {
     required: false,
@@ -303,7 +305,7 @@ export function jsonToJsonSchema(
     },
   })
   delete schema.description
-  return processJsonSchema(schema as any, customTypeMapping)
+  return processJsonSchema(schema as any, customTypeMapping, isDefaultNullable)
 }
 
 /**
@@ -315,6 +317,7 @@ export function jsonToJsonSchema(
 export function mockjsTemplateToJsonSchema(
   template: object,
   customTypeMapping: Record<string, JSONSchema4TypeName>,
+  isDefaultNullable?: boolean,
 ): JSONSchema4 {
   const actions: Array<() => void> = []
   // https://github.com/nuysoft/Mock/blob/refactoring/src/mock/constant.js#L27
@@ -352,7 +355,7 @@ export function mockjsTemplateToJsonSchema(
     }
   })
   actions.forEach(action => action())
-  return jsonToJsonSchema(template, customTypeMapping)
+  return jsonToJsonSchema(template, customTypeMapping, isDefaultNullable)
 }
 
 /**
@@ -537,6 +540,7 @@ export function getResponseDataJsonSchema(
   interfaceInfo: Interface,
   customTypeMapping: Record<string, JSONSchema4TypeName>,
   dataKey?: OneOrMore<string>,
+  isDefaultNullable?: boolean,
 ): JSONSchema4 {
   let jsonSchema: JSONSchema4 = {}
 
@@ -553,6 +557,7 @@ export function getResponseDataJsonSchema(
             : mockjsTemplateToJsonSchema(
                 JSON5.parse(res_body),
                 customTypeMapping,
+                isDefaultNullable,
               )
         }
         break

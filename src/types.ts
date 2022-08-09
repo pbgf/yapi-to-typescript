@@ -681,7 +681,12 @@ export interface ServerConfig extends SharedConfig {
   /**
    * 是否按照目录拆分文件
    */
-   splitBtCats: boolean | Record<string, string>;
+   splitBtCats?: boolean | Record<string, string>;
+
+   /**
+    * 是否默认认为数组和对象为nullable
+    */
+   isDefaultNullable?: boolean;
 }
 
 /** 混合的配置。 */

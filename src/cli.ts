@@ -8,6 +8,7 @@ import Generator from './Generator';
 import dedent from 'dedent';
 import { Defined } from 'vtils/types';
 import { ServerConfig } from './types';
+import { run } from 'vtils';
 // 注册ts-node方便 require直接可以解析ts文件
 TSNode.register({
   // 不加载本地的 tsconfig.json
@@ -77,8 +78,10 @@ program
 
 program
   .command('init')
+  .argument('[serverType]', '服务平台')
+  .argument('[projectKey]', '项目key')
   .description('init config file')
-  .action(async () => {
+  .action(async (serverType?: string, projectKey?: string) => {
     const cwd = process.cwd()
     const configTSFile = path.join(cwd, 'att.config.ts')
     const configJSFile = path.join(cwd, 'att.config.js')
@@ -98,25 +101,44 @@ program
     }
     let outputConfigFile!: string
     let outputConfigFileType!: 'ts' | 'js'
-    const answers = await prompt({
-      message: '选择配置文件类型?',
-      name: 'configFileType',
-      type: 'select',
-      choices: [
-        { title: 'TypeScript(att.config.ts)', value: 'ts' },
-        { title: 'JavaScript(att.config.js)', value: 'js' },
-      ],
-    })
-    outputConfigFile =
-      answers.configFileType === 'js' ? configJSFile : configTSFile
-    outputConfigFileType = answers.configFileType
+    if (serverType) {
+      outputConfigFile = configTSFile;
+      outputConfigFileType = 'ts';
+    } else {
+      const answers = await prompt({
+        message: '选择配置文件类型?',
+        name: 'configFileType',
+        type: 'select',
+        choices: [
+          { title: 'TypeScript(att.config.ts)', value: 'ts' },
+          { title: 'JavaScript(att.config.js)', value: 'js' },
+        ],
+      })
+      outputConfigFile =
+        answers.configFileType === 'js' ? configJSFile : configTSFile
+      outputConfigFileType = answers.configFileType
+    }
+    const [,projectKetText] = await run(() => {
+      if (serverType === 'promise') {
+        return `promiseKey: '${projectKey}'`;
+      }
+      if (serverType === 'mock') {
+        return `token: '${projectKey}'`;
+      }
+      return dedent`
+        promiseKey: 'arFgQ2LD8', // promise平台key
+        // token: '49b02f333e1af28f249ae2742de29f155bc05f3863800cdfcca7e3aa410ae913',
+      `
+    });
     await fs.outputFile(
       outputConfigFile,
       dedent`
         import { defineConfig } from '@didi/api-to-typescript'
 
         export default defineConfig({
-          serverType: 'promise',
+          serverType: '${
+            serverType || 'promise'
+          }',
           typesOnly: false, // 只生成ts type
           target: '${
             (outputConfigFileType === 'js'
@@ -129,8 +151,7 @@ program
           dataKey: 'data', // response 取值key
           projects: [
             {
-              promiseKey: 'arFgQ2LD8', // promise平台key
-              // token: '49b02f333e1af28f249ae2742de29f155bc05f3863800cdfcca7e3aa410ae913',
+              ${projectKetText},
               categories: [{
                 id: 0,
                 // getRequestFunctionName(interfaceInfo, changeCase) {
