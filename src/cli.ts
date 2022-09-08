@@ -149,6 +149,12 @@ program
           outputFilePath: 'output/api/', // 接口文件输出路径
           requestFunctionFilePath: 'output/api/request.ts', // 接口请求方法输出路径
           dataKey: 'data', // response 取值key
+          // 参数校验能力
+          // jsonSchema: {
+          //   enabled: true,
+          //   requestData: true,
+          //   requestValidate: true,
+          // },
           projects: [
             {
               ${projectKetText},

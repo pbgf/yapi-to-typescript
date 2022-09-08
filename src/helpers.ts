@@ -7,6 +7,7 @@ import {
   RequestFunctionParams,
 } from './types'
 import { AppendOptions } from 'form-data'
+const jsonschema = require('jsonschema');
 
 /**
  * 定义配置。
@@ -227,6 +228,20 @@ export function prepare(
     })
     return formData as any
   }
+  if (requestConfig.requestValidate) {
+    const result = jsonschema.validate(requestData, requestConfig.requestDataJsonSchema);
+    return {
+      ...requestConfig,
+      path: requestPath,
+      rawData: requestData,
+      data: data,
+      hasFileData: fileData && Object.keys(fileData).length > 0,
+      fileData: fileData,
+      allData: allData,
+      getFormData: getFormData,
+      validateResult: result
+    }
+}
 
   return {
     ...requestConfig,

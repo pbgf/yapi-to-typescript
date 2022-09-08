@@ -1,6 +1,6 @@
 {
   "name": "@didi/api-to-typescript",
-  "version": "0.0.3-beta.12",
+  "version": "0.0.3-beta.17",
   "description": "",
   "main": "lib/index.js",
   "scripts": {
@@ -56,6 +56,7 @@
     "get-port": "^5.1.1",
     "json-schema-to-typescript": "^10.1.4",
     "json5": "^2.1.0",
+    "jsonschema": "^1.4.1",
     "md5": "^2.3.0",
     "node-fetch": "^2.6.7",
     "openapi-types": "^7.2.3",
@@ -65,7 +66,7 @@
     "signal-exit": "^3.0.3",
     "swagger-client": "^3.12.0",
     "to-json-schema": "^0.2.5",
-    "vtils": "^4.55.0",
-    "ts-node": "^10.9.1"
+    "ts-node": "^10.9.1",
+    "vtils": "^4.55.0"
   }
 }

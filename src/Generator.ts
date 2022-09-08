@@ -1071,6 +1071,7 @@ export default class Generator {
                   ? responseDataJsonSchema
                   : {},
               )},
+              requestValidate: ${JSON.stringify(!!syntheticalConfig.jsonSchema?.requestValidate)},
               requestFunctionName: ${JSON.stringify(requestFunctionName)},
               queryStringArrayFormat: QueryStringArrayFormat.${
                 syntheticalConfig.queryStringArrayFormat ||

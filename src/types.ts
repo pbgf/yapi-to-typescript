@@ -1,6 +1,7 @@
 import { AsyncOrSync, LiteralUnion, OmitStrict, OneOrMore } from 'vtils/types'
 import { JSONSchema4, JSONSchema4TypeName } from 'json-schema'
 import { ParsedPath } from 'path'
+import { ValidatorResult } from 'jsonschema';
 
 export interface ChangeCase {
   /**
@@ -362,7 +363,10 @@ export interface JsonSchemaConfig {
    * @default true
    */
   requestData?: boolean
-
+  /**
+   * 是否校验请求参数
+   */
+   requestValidate?: boolean
   /**
    * 是否生成返回数据的 JSON Schema。
    *
@@ -744,6 +748,8 @@ export interface RequestConfig<
   requestDataJsonSchema: JSONSchema4
   /** 返回数据的 JSON Schema (仅开启了 JSON Schema 生成时生效) */
   responseDataJsonSchema: JSONSchema4
+  /** */
+  requestValidate: boolean;
   /** 请求函数名称 */
   requestFunctionName: string
   /** 如何格式化查询字符串中的数组值 */
@@ -768,6 +774,8 @@ export interface RequestFunctionParams extends RequestConfig {
   allData: Record<string, any>
   /** 获取全部请求数据（包含文件）的 FormData 实例 */
   getFormData: () => FormData
+  /** */
+  validateResult?: ValidatorResult
 }
 
 /** 请求函数的额外参数 */
