@@ -867,7 +867,8 @@ export default class Generator {
       extendedInterfaceInfo,
       syntheticalConfig.customTypeMapping || {},
       syntheticalConfig.dataKey,
-      syntheticalConfig.isDefaultNullable
+      syntheticalConfig.isDefaultNullable,
+      syntheticalConfig.serverType
     )
     const responseDataType = await jsonSchemaToType(
       responseDataJsonSchema,

@@ -541,14 +541,20 @@ export function getResponseDataJsonSchema(
   customTypeMapping: Record<string, JSONSchema4TypeName>,
   dataKey?: OneOrMore<string>,
   isDefaultNullable?: boolean,
+  serverType?: 'mock' | 'swagger' | 'promise'
 ): JSONSchema4 {
   let jsonSchema: JSONSchema4 = {}
 
   try {
     switch (interfaceInfo.res_body_type) {
       case ResponseBodyType.json:
-        const res_body = interfaceInfo.res_body || interfaceInfo.res_body_multi[0].cont;
+        let res_body = interfaceInfo.res_body || interfaceInfo.res_body_multi?.[0]?.cont;
         if (res_body) {
+          const isPromise = serverType === 'promise';
+          if (isPromise && interfaceInfo.res_body_is_json_schema) {
+            // promise平台单独的存json_schema的字段
+            res_body = interfaceInfo.res_body_multi[0].cont_json_schema;
+        }
           jsonSchema = interfaceInfo.res_body_is_json_schema
             ? jsonSchemaStringToJsonSchema(
                 res_body,
