@@ -54,5 +54,6 @@ export default [
             typescript(),
             babel(),
         ],
+        external: ['swagger-client']
     }
 ];
